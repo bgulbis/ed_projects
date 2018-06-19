@@ -35,6 +35,7 @@ mbo_id <- concat_encounters(visits$millennium.id)
 
 # run MBO query
 #   * Identifiers - by Millennium Encounter Id
+#   * Medications - Inpatient - All
 
 identifiers <- read_data(dir_raw, "identifiers", FALSE) %>%
     as.id()
@@ -45,3 +46,26 @@ identifiers %>%
         file = paste(dir_external, "patients.csv", sep = "/"),
         row.names = FALSE
     )
+
+read_data(dir_raw, "meds-inpt", FALSE) %>%
+    as.meds_inpt() %>%
+    filter(
+        med.location %in% c(
+            "HH EDHH",
+            "HH EDTR",
+            "HH EREV",
+            "HH VUHH"
+        ),
+        med.dose.units == "mL",
+        route %in% c("IV", "IVPB")
+    ) %>%
+    group_by(millennium.id, med) %>%
+    summarize_at("med.dose", sum, na.rm = TRUE) %>%
+    left_join(identifiers, by = "millennium.id") %>%
+    ungroup() %>%
+    select(fin, everything(), -millennium.id) %>%
+    write.csv(
+        file = paste(dir_external, "iv_fluids.csv", sep = "/"),
+        row.names = FALSE
+    )
+
